@@ -1,0 +1,21 @@
+. $HOME/.bash_profile
+sqlplus -s /nolog <<EOF
+connect /as sysdba
+spool /tmp/applied.log
+set pagesize 0
+set head off
+set feedback off
+set linesize 120
+select thread#||':'||max(sequence#-20) from v\$archived_log where applied='YES'  group by thread#;
+spool off
+EOF
+while read line
+ do
+  thread=`echo $line |awk -F ":" '{print $1}'`
+  sequence=`echo $line |awk -F ":" '{print $2}'` 
+  echo "thread:$thread sequence:$sequence"
+$ORACLE_HOME/bin/rman target / nocatalog <<EOF
+crosscheck archivelog all;
+delete noprompt archivelog until sequence $sequence thread $thread;
+EOF
+done < /tmp/applied.log
