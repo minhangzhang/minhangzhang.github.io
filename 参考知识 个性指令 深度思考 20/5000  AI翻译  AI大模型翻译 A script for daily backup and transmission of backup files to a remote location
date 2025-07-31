@@ -1,0 +1,26 @@
+#!/bin/ksh
+. /home/oracle/.bash_profile
+export ORACLE_BASE=/oracle/app
+export ORACLE_HOME=/oracle/app/product/11.2.0/db_1
+export ORACLE_SID=orcl2
+rman target / log /backup/rman.log append<<EOF
+run {
+allocate channel oem_disk_backup device type disk;
+backup as compressed backupset full tag 'radinfo_full_backup' database format '/backup/full_%d_%t_%s_%p.bak';
+release channel oem_disk_backup;
+}
+crosscheck backup;
+delete noprompt  backup completed before 'sysdate-5';
+EOF
+#----set files to remote
+#!/bin/bash
+ftp -n 10.33.48.135 <<EOF
+user root Snp123!@#
+prompt
+binary
+lcd /backup
+cd /data/dmp
+mput *.bak
+bye
+EOF
+###
