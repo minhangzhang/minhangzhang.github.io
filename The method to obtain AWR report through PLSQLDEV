@@ -1,0 +1,22 @@
+The method to obtain AWR report through PLSQLDEV:
+Remote retrieval of AWR report
+How to retrieve AWR report
+1. Check snapid and dbid
+select dbid from v$database;
+select to_char(s.startup_time,'dd Mon "at" HH24:mi:ss')  instart_fmt
+,  di.instance_name                                  inst_name
+,  di.db_name                                        db_name
+,  s.snap_id                                         snap_id
+,  to_char(s.end_interval_time,'dd Mon YYYY HH24:mi') snapdat
+,  s.snap_level                                      lvl
+from dba_hist_snapshot s
+,  dba_hist_database_instance di
+where di.dbid             = s.dbid
+and di.instance_number  = s.instance_number
+and di.startup_time     = s.startup_time
+order by db_name, instance_name, snap_id DESC;
+2. Execute command to query AWR and obtain report text
+select * from table(dbms_workload_repository.awr_report_html('1435211751',1,8013,8014));
+3. Copy the obtained AWR report to a text file and save it in HTML format to obtain the AWR report
+4. ASH acquisition
+select * from table(dbms_workload_repository.ash_report_html('3758232847',1,to_date('2024-12-16 21:05:00','YYYY-MM-DD HH24:MI:SS'),to_date('2024-12-16 21:35:00','YYYY-MM-DD HH24:MI:SS')));
