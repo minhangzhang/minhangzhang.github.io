@@ -1,0 +1,18 @@
+表误操作前未开启附加日志的话，会丢失许多挖掘数据
+-- 1.指定要分析的日志文件（第一个写在这）
+exec sys.dbms_logmnr.add_logfile(logfilename => '/usr/tmsora/archived/tms_1_7876_691702641.arc',options => dbms_logmnr.new);
+
+-- 2.增加别的日志文件（后续的都在这些）
+exec sys.dbms_logmnr.add_logfile(logfilename=>'/usr/tmsora/archived/tms_1_7885_691702641.arc');
+
+-- 3.使用本地的在线数据字典分析归档日志
+exec sys.dbms_logmnr.start_logmnr(options => sys.dbms_logmnr.dict_from_online_catalog);
+
+-- 4.查询分析出来的归档日志内容，例如统计最大修改量的Schema
+select seg_owner,count(*) from v$logmnr_contents group by seg_owner;
+create table logmnr_tab1 as select  * from V$LOGMNR_CONTENTS;
+
+-- 5.结束分析归档日志
+exec sys.dbms_logmnr.end_logmnr;
+
+注意了：日志只能挖掘出DML和DDL，DML可以通过sql_undo恢复；DDL可以通过查找操作的SCN然后闪回回去。不记录select
