@@ -1,0 +1,36 @@
+BEGIN-----查询表中列的选择性及直方图信息------
+选择性以及直方图查询脚本(查询不出结果，收集下统计信息)
+select a.column_name,
+b.num_rows,
+a.num_distinct Cardinality,
+round(a.num_distinct / b.num_rows * 100, 2) selectivity,
+a. histogram,
+a.num_buckets
+from dba_tab_col_statistics a, dba_tables b
+where a.owner = b.owner
+and a.table_name = b.table_name
+and a.owner = 'TEST'
+and a.table_name = 'TEST'
+;
+END-----查询表中列的选择性及直方图信息------
+
+
+BEGIN-----查询某表所有列的索引创建情况------
+set linesize 300
+col owner for a10
+col index_name for a25
+col ind_type for a7
+col status for a8
+col degree for a6
+col COLUMN_NAME for a20
+col analyze_time for a20
+select a.owner,a.index_name,a.index_type ind_type,a.degree,b.column_name,b.column_position colpos,b.descend,a.distinct_keys,round(c.bytes/1024/1024,1) bytes,a.status,a.num_rows,to_char(a.last_analyzed,'yyyy-mm-dd hh24:mi') analyze_time
+  from dba_indexes a ,dba_ind_columns b,dba_segments c
+where a.table_owner=b.table_owner
+and a.table_name=b.table_name
+and a.index_name=b.index_name
+and a.index_name=c.segment_name
+and a.owner=c.owner
+and a.table_name = 'TEST'
+and a.owner = 'TEST';
+END-----查询某表所有列的索引创建情况------
