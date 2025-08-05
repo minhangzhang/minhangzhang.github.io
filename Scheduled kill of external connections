@@ -1,0 +1,10 @@
+#!/bin/bash
+export ORACLE_HOME=/opt/oracle/db/product
+export ORACLE_BASE=/opt/oracle/db
+export ORACLE_SID=orcl1
+num=`ps -ef|grep "LOCAL=NO"|wc -l`
+if (("$num" > 3500))
+then
+ps -ef|grep "LOCAL=NO"|grep -v grep|awk '{print "kill -9 " $2}'| sh
+fi
+ps -ef|grep "LOCAL=NO"|wc -l
