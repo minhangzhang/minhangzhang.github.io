@@ -1,0 +1,111 @@
+/ SQLplus中，设置 set serveroutput on 才能显示输出结果 /
+
+---匿名的PLSQL(存储过程)块，不存储在数据库中
+begin
+	null;
+end;
+/
+
+begin
+	dbms_output.put('hi ');    /*put是不换行的输出*/
+	dbms_output.put_line('hello world');   /*put_line是换行的输出*/
+end;
+/
+
+---命名的存储过程，存储在数据库中
+create or replace procedure hello_procedure as 
+begin
+	null;
+end hello_procedure;
+/
+
+---存储过程里面可以直接执行DML
+create table test (id number,name varchar(20));
+begin
+	insert into test values(1,'zmh');
+	commit;
+end;
+/
+
+begin
+	insert into test values(2,'qyt');
+	commit;
+end;
+/
+
+---存储过程中不能直接执行select，如果要执行select，必须跟上into字句
+begin
+	select * from test;
+end;
+/
+PLS-00428: 在此 SELECT 语句中缺少 INTO 子句
+
+这个地方，我的理解是在存储过程中执行select语句，需要先把数据赋值到事先声明好的变量中，然后通过变量输出出来，一个列需要对应一个变量。
+declare
+v_name varchar2(20);
+begin
+	select name into v_name from test where id=1;
+	dbms_output.put_line(v_name);
+end;
+/
+
+---select...into 只能赋值一行，不能赋值多行，如果赋值了不存在的行也会报错(但可以处理)
+意思就是存储过程中，select只能查一行,如下就会报错,提示超出请求行数：
+declare
+v_name varchar2(20);
+begin 
+	select name into v_name from test;
+	dbms_output.put_line(v_name);
+end;
+/
+ORA-01422: 实际返回的行数超出请求的行数
+
+因此需要对select语句加where条件：where rownum<=1或者where id=1。
+
+下面是赋值了不存在的行的报错，及解决办法：
+declare
+v_name varchar2(20);
+begin
+	select name into v_name from test where id=3;
+	dbms_output.put_line(v_name);
+end;
+/
+ORA-01403: 未找到任何数据
+
+解决的小技巧是，写一个union，实际情况union空，将返回的值通过max函数筛选：
+declare
+v_name varchar2(20);
+begin
+	select max(name) into v_name from (
+	select name from test where id=3
+	union
+	select null from dual);
+	dbms_output.put_line(v_name);
+end;
+/
+
+---select...into 多个列
+虽然select into不能多个行，但是可以多个列：
+declare
+v_id number;
+v_name varchar2(20);
+begin
+	select id,name into v_id,v_name from test where id=1;
+	dbms_output.put_line(v_id||','||v_name);
+end;
+/
+
+---存储过程里面不能直接执行DDL，如果要执行DDL，可以使用动态SQL(execute immediate)
+begin
+	alter table test add(tel varchar2(12));
+end;
+/
+PLS-00103: 出现符号 "ALTER"在需要下列之一时....
+
+解决办法；
+begin
+	execute immediate 'alter table test add(tel varchar2(12))';
+end;
+/
+
+---动态SQL里面不仅可以DDL，DML和select...into都可以
