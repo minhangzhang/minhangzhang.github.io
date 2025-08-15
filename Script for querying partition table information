@@ -1,0 +1,97 @@
+--查看当前用户下分区表及对应索引的相关信息
+--（表及索引多大，多少个分区，在哪一个列建了分区，表及索引的分区的类型是什么，有无子分区）
+set linesize 366
+col partitioning_type format a10 
+col subpartitioning_type format a10 
+col partition_count format 99999 
+col column_name format a20
+col object_type format a10
+col blevel format 9
+col num_rows format 99999999
+col leaf_blocks format 999999
+col column_position format 9
+col partition_name format a28
+col segment_type format a20
+col index_name format a28
+col table_name format a30
+col last_analyzed format date
+col status format a8
+
+---01 该表是否是分区表，分区表的分区类型是什么，是否有子分区，分区总数有多少
+select partitioning_type, 
+       subpartitioning_type, 
+       partition_count
+  from user_part_tables
+ where table_name ='RANGE_PART_TAB';
+--02 该分区表在哪一列上建分区,有无多列联合建分区
+select column_name, 
+       object_type, 
+       column_position
+  from user_part_key_columns
+ where name ='RANGE_PART_TAB'; 
+--03 该分区表有多大？
+select sum(bytes) / 1024 / 1024
+  from user_segments
+ where segment_name ='RANGE_PART_TAB';
+--04 该分区表各分区分别有多大，各个分区名是什么。
+select partition_name, 
+       segment_type, 
+       bytes
+  from user_segments
+ where segment_name ='RANGE_PART_TAB';
+--05 该分区表的统计信息收集情况
+select table_name,
+       partition_name,
+       last_analyzed,
+       partition_position,      
+       num_rows
+  from user_tab_statistics t
+ where table_name ='RANGE_PART_TAB' order by 2;
+--06 查该分区表有无索引，分别什么类型,全局索引是否失效，此外还可看统计信息收集情况。
+--(其中status值为N/A 表示分区索引，分区索引是否失效是在user_ind_partitions中查看)
+select table_name, 
+       index_name, 
+       last_analyzed,
+       blevel,
+       num_rows,
+       leaf_blocks,
+       distinct_keys,
+       status
+  from user_indexes
+ where table_name ='RANGE_PART_TAB';
+--07 该分区表在哪些列上建了索引
+select index_name, 
+       column_name, 
+       column_position
+  from user_ind_columns
+ where table_name = 'RANGE_PART_TAB';
+--08 该分区表上的各索引分别有多大。(从segment_type也能看出是否局部索引)
+select segment_name,segment_type,sum(bytes)/1024/1024
+  from user_segments
+ where segment_name in
+       (select index_name
+          from user_indexes
+         where table_name ='RANGE_PART_TAB')
+group by segment_name,segment_type ;  
+--09 该分区表的索引段的分配情况
+select segment_name
+       partition_name, 
+       segment_type, 
+       bytes
+  from user_segments
+ where segment_name in
+       (select index_name
+          from user_indexes
+         where table_name ='RANGE_PART_TAB');
+--10 分区索引相关信息及统计信息、是否失效查看。
+select t2.table_name,
+       t1.index_name,
+       t1.partition_name,
+       t1.last_analyzed,
+       t1.blevel,
+       t1.num_rows,
+       t1.leaf_blocks,
+       t1.status       
+  from user_ind_partitions t1, user_indexes t2
+where t1.index_name = t2.index_name
+   and t2.table_name='RANGE_PART_TAB';         
