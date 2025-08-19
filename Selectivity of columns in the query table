@@ -1,0 +1,12 @@
+select a.column_name,
+b.num_rows,
+a.num_distinct Cardinality,
+round(a.num_distinct / b.num_rows * 100, 2) selectivity,
+a. histogram,
+a.num_buckets
+from dba_tab_col_statistics a, dba_tables b
+where a.owner = b.owner
+and a.table_name = b.table_name
+and a.owner = 'TEST'
+and a.table_name = 'TEST'
+;
