@@ -1,0 +1,17 @@
+This script does not rely on statistical information.
+Suggest creating an index on the foreign key column, as not creating an index on the foreign key column can easily lead to deadlocks. When cascading deletion occurs, a foreign key column without an index will result in the table being scanned across the entire table. The following script captures tables with foreign keys under Scott's account that have not been indexed.
+
+with cons as (select /*+ materialize */ owner, table_name, constraint_name
+          from dba_constraints
+         where owner = 'SCOTT'
+           AND constraint_type = 'R'),
+     idx as (
+     select /*+ materialize */ table_owner,table_name, column_name
+          from dba_ind_columns
+         where table_owner = 'SCOTT')      
+select owner,table_name,constraint_name,column_name
+  from dba_cons_columns
+ where (owner,table_name, constraint_name) in
+       (select * from cons)
+   and (owner,table_name, column_name) not in
+       (select * from idx);
