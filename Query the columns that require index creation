@@ -1,0 +1,31 @@
+BEGIN-----查询出现在where条件中且未创建索引的列------
+先执行下面的存储过程， 刷新数据库监控信息
+begin
+dbms_stats.flush_database_monitoring_info;
+end; 
+/
+
+运行完上面的命令之后， 再运行下面的查询语句就可以查出哪个表的哪个列出现在where 条件中。
+(意思是该表跑过的SQL语句中，出现在where条件里且未建过索引的列，然后我们再进一步判断适不适合建索引)
+col owner for a10
+col TABLE_NAME for a20
+col COLUMN_NAME for a20
+set line 300
+select r.name owner,
+o.name table_name,
+c.name column_name,
+equality_preds,--等值过滤
+equijoin_preds,--等值JOIN比如where a.id=b.id
+nonequijoin_preds,--不等JOIN
+range_preds,
+like_preds,--LIKE过滤
+null_preds,--NULL过滤
+timestamp
+from sys.col_usage$ u, sys.obj$ o, sys.col$ c, sys.user$ r
+where o.obj# = u.obj#
+and c.obj# = u.obj#
+and c.col# = u.intcol#
+and r.name = '用户名'
+and o.name = '表名';
+END------查询出现在where条件中且未创建索引的列------
+---It's will query columns that appear in the 'where' condition and have not been indexed---
