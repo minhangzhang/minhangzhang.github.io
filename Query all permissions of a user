@@ -1,0 +1,108 @@
+SET LINESIZE 720
+SET PAGESIZE 60
+COL PRIV_TYPE FOR A9
+COL PRIVILEGE FOR A16
+COL OBJ_OWNER FOR A10
+COL OBJ_NAME FOR A30
+COL USERNAME FOR A14
+COL GRANT_SOURCES FOR A16
+COL ADMIN_OPTION FOR A10
+COLHIERARCHYFOR A10
+SELECT
+    PRIV_TYPE,
+    PRIVILEGE,
+    OBJ_OWNER,
+    OBJ_NAME,
+    LISTAGG(GRANT_TARGET, ',') WITHINGROUP (ORDERBY GRANT_TARGET) AS GRANT_SOURCES, -- Lists the sources of the permission
+    USERNAME,
+    MAX(ADMIN_OPTION) AS ADMIN_OPTION,    -- MAX acts as a Boolean OR by picking 'YES' over 'NO'
+    MAX(HIERARCHY) ASHIERARCHY           -- MAX acts as a Boolean OR by picking 'YES' over 'NO'
+FROM (
+    -- gets all roles a user has, even inherited ones
+    WITH RU AS (
+        SELECTDISTINCTCONNECT_BY_ROOT GRANTEE AS GRANTED_USER, GRANTED_ROLE
+        FROM DBA_ROLE_PRIVS
+        CONNECTBY GRANTEE = PRIOR GRANTED_ROLE
+    )
+    SELECT
+          PRIV_TYPE,
+          PRIVILEGE,
+          OBJ_OWNER,
+          OBJ_NAME,
+          USERNAME,
+          REPLACE(GRANT_TARGET, USERNAME, 'Direct to user') AS GRANT_TARGET,
+          ADMIN_OPTION,
+          HIERARCHY
+    FROM (
+        -- system privileges granted directly to users
+        SELECT'SYSTEM'         AS PRIV_TYPE
+             , PRIVILEGE        AS PRIVILEGE
+             , '---'            AS OBJ_OWNER
+             , '---'            AS OBJ_NAME
+             , GRANTEE          AS USERNAME
+             , GRANTEE          AS GRANT_TARGET
+             , ADMIN_OPTION     AS ADMIN_OPTION
+             , NULL             ASHIERARCHY
+        FROM DBA_SYS_PRIVS
+        WHERE GRANTEE IN (SELECT USERNAME FROM DBA_USERS)
+        UNIONALL
+        -- system privileges granted users through roles
+        SELECT'ROLE'           AS PRIV_TYPE
+             , GRANTED_ROLE     AS PRIVILEGE
+             , '---'            AS OBJ_OWNER
+             , '---'            AS OBJ_NAME
+             , GRANTEE          AS USERNAME
+             , GRANTEE          AS GRANT_TARGET
+             , ADMIN_OPTION     AS ADMIN_OPTION
+             , NULL             ASHIERARCHY
+        FROM DBA_ROLE_PRIVS RP 
+        INNERJOIN DBA_ROLES R ON RP.GRANTED_ROLE = R.ROLE 
+        --FROM DBA_SYS_PRIVS
+        --JOIN RU ON RU.GRANTED_ROLE = DBA_SYS_PRIVS.GRANTEE
+        UNIONALL
+        -- object privileges granted directly to users
+        SELECT P.TYPE           AS PRIV_TYPE
+             , P.PRIVILEGE      AS PRIVILEGE
+             , P.OWNER          AS OBJ_OWNER
+             , P.TABLE_NAME     AS OBJ_NAME
+             , P.GRANTEE        AS USERNAME
+             , P.GRANTEE        AS GRANT_TARGET
+             , P.GRANTABLE      AS ADMIN_OPTION
+             , P.HIERARCHY      ASHIERARCHY
+        FROM DBA_TAB_PRIVS P
+        WHERE GRANTEE IN (SELECT USERNAME FROM DBA_USERS)
+        UNIONALL
+        -- object privileges granted users through roles
+        SELECT'ROLE'           AS PRIV_TYPE
+             , PRIVILEGE        AS PRIVILEGE
+             , OWNER            AS OBJ_OWNER
+             , TABLE_NAME       AS OBJ_NAME
+             , RU.GRANTED_USER  AS USERNAME
+             , RU.GRANTED_ROLE  AS GRANT_TARGET
+             , GRANTABLE        AS ADMIN_OPTION
+             , HIERARCHY        ASHIERARCHY
+        FROM DBA_TAB_PRIVS
+        JOIN RU ON RU.GRANTED_ROLE = DBA_TAB_PRIVS.GRANTEE
+        UNIONALL
+        -- column privileges granted directly to users 
+        SELECT'COLUMN'        AS PRIV_TYPE
+               ,PRIVILEGE       AS PRIVILEGE
+               ,OWNER           AS OBJ_OWNER
+               ,TABLE_NAME||'(' || COLUMN_NAME ||')'
+                                AS OBJ_NAME
+               ,GRANTEE         AS USERNAME
+               ,GRANTEE         AS GRANT_TARGET
+               ,GRANTABLE       AS ADMIN_OPTION
+               ,INHERITED       AS INHERITED
+        FROM DBA_COL_PRIVS
+        WHERE GRANTEE IN (SELECT USERNAME FROM DBA_USERS)
+    ) ALL_USER_PRIVS
+    WHERE USERNAME = UPPER(TRIM('&USERNAME'))
+) DISTINCT_USER_PRIVS
+GROUPBY
+    PRIV_TYPE,
+    PRIVILEGE,
+    OBJ_OWNER,
+    OBJ_NAME,
+    USERNAME
+;
