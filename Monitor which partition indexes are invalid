@@ -1,0 +1,20 @@
+Query current user, invalid - normal index：
+select t.index_name,
+       t.table_name,
+       blevel,
+       t.num_rows,
+       t.leaf_blocks,
+       t.distinct_keys
+  from user_indexes t
+where status = 'INVALID';
+
+Query the current user's invalid partition index：
+select t1.blevel,
+       t1.leaf_blocks,
+       t1.INDEX_NAME,
+       t2.table_name,
+       t1.PARTITION_NAME,
+       t1.STATUS
+  from user_ind_partitions t1, user_indexes t2
+where t1.index_name = t2.index_name
+   and t1.STATUS = 'UNUSABLE';
