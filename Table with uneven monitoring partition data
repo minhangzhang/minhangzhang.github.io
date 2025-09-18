@@ -1,0 +1,27 @@
+--The following script can analyze the imbalance of partition table records and also indirectly discover the situation where a large amount of current data enters the default partition due to lax management.
+
+
+--Statistical information systems generally collect data automatically, and this is only a need to be operated after the first table is built for testing purposes.
+exec dbms_stats.gather_table_stats(ownname => 'TEST',tabname => 'RANGE_PART_TAB',estimate_percent => 10,method_opt=> 'for all indexed columns',cascade=>TRUE) ;  
+
+
+--Under the current user, the number of records in a certain partition is more than twice the average number of records.
+set linesize 266
+col table_name format a20
+select table_name,
+       max(num_rows),
+       trunc(avg(num_rows),0),
+       sum(num_rows),
+       trunc(max(num_rows) / sum(num_rows),2),
+       count(*)
+  from user_tab_partitions
+ group by table_name
+having max(num_rows) / sum(num_rows) > 2 / count(*);
+
+--It can also be used as a reference to determine whether a large amount of data has entered the default partition due to lax partition management under the current user's query.
+select table_name,
+       partition_name,
+       num_rows  
+ from user_tab_partitions
+ where table_name = 'RANGE_PART_TAB'
+ order by num_rows desc;
