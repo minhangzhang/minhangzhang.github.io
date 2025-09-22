@@ -1,0 +1,6 @@
+--Which tables have overlapping composite indexes and single column indexes under the current user.
+select table_name, trunc(count(distinct(column_name)) / count(*),2) cross_idx_rate
+  from user_ind_columns
+ group by table_name
+having count(distinct(column_name)) / count(*) < 1
+order by cross_idx_rate desc;
