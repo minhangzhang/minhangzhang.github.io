@@ -1,0 +1,10 @@
+select table_name,
+       index_name,
+       blevel,
+       leaf_blocks,
+       num_rows,
+       last_analyzed,
+       degree,
+       status
+  from user_indexes
+  where  degree>1;
